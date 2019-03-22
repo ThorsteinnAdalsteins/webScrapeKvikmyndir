@@ -89,58 +89,80 @@ fClean.table <- function(d){
   return(df)
 }
 
-dc <- lapply(tables, fClean.table)
+tables.list.clean <- lapply(tables, fClean.table)
 
 
-dcb <- do.call(rbind,dc)
-dcb$info <- str_replace(row.names(dcb), '\\.[:digit:]+', '')
-dcb <- as_tibble(dcb)
+t.long <- do.call(rbind, tables.list.clean)
+t.long$info <- str_replace(row.names(t.long), '\\.[:digit:]+', '')
+t.long <- as_tibble(t.long)
 
-dcbd <- dcb %>% tidyr::separate(col = info, into = c('blog.y', 'blog.m', 'blog.d', 'rest', 'scr'), sep = '/') 
+tx <- t.long %>% tidyr::separate(col = info, into = c('blog.y', 'blog.m', 'blog.d', 'rest', 'scr'), sep = '/') 
 
-# þarf að ná sýningardögunum ut úr vefslóðinni
-# þetta er svolítið clusterfudge
-fSplit.rest <- function(rest.vec){
-  
-  rest <- rest.vec
-  rest1 <- str_replace_all(rest ,'til', '$')
-  fra.dag <- str_extract(rest1, '[:digit:]+')
-  rest2 <- str_replace(rest1, fra.dag, '$')
-  til.dag <- str_extract(rest2, '[:digit:]+')
-  rest3 <- str_replace(rest2, til.dag, '$')
-  fra.ar <- str_extract(rest3, '[:digit:][:digit:][:digit:][:digit:]')
-  rest4 <- str_replace(rest3, coalesce(fra.ar, '2000'), '$')
-  fra.man <- str_extract(rest4, '[:alpha:]+')
-  rest5 <- str_replace(rest4, fra.man, '$')
-  til.man <- str_extract(rest5, '[:alpha:]+')
-  out.data <- tibble(rest, fra.dag, fra.man, til.dag, til.man, fra.ar)
+tx$rest <- str_replace_all(tx$rest ,'til', '$')
+tx$fra.dag <- str_extract(tx$rest, '[:digit:]+')
+tx$rest <- str_replace(tx$rest, coalesce(tx$fra.dag, 'NONE'), '$')
+tx$til.dag <- str_extract(tx$rest, '[:digit:]+')
+tx$rest <- str_replace(tx$rest, coalesce(tx$til.dag, 'NONE'), '$')
+tx$fra.ar <- str_extract(tx$rest, '[:digit:][:digit:][:digit:][:digit:]')
+tx$rest <- str_replace(tx$rest, coalesce(tx$fra.ar, 'NONE'), '$')
+tx$fra.man <- str_extract(tx$rest, '[:alpha:]+')
+tx$rest <- str_replace(tx$rest, coalesce(tx$fra.man, 'NONE'), '$')
+tx$til.man <- str_extract(tx$rest, '[:alpha:]+')
+tx$rest <- str_replace(tx$rest, coalesce(tx$til.man, 'NONE'), '$')
 
-  return(out.data)
-}
-
-dcdb <- dcbd %>% dplyr::inner_join(fSplit.rest(dcbd$rest))
 # laga null
-dcdb$fra.ar <- coalesce(dcdb$fra.ar, dcdb$blog.y)
-dcdb$til.man <- coalesce(dcdb$til.man, dcdb$fra.man)
-dcdb$til.ar <- dcdb$fra.ar
+tx$fra.ar <- coalesce(tx$fra.ar, tx$blog.y)
+tx$til.man <- coalesce(tx$til.man, tx$fra.man)
+tx$til.ar <- tx$fra.ar
 
-view(dcdb)
 
-# reyni að laga mánuðina og sækja 
+# reyni að laga mánuðina og sækja númer fyrir mánuði
 minimal.month <- tibble(
-  m = c('jan', 'feb', 'mar', 'apr', 'mai', 'may', 'jun', 'jul', 'agu', 'aug', 'sep', 'okt', 'oct', 'nov', 'des', 'dec'),  
-  n = c(1, 2, 3, 4, 5, 5, 6, 7, 8, 8, 9, 10, 10, 11, 12, 12)
+  m = c('jan', 'feb', 'mar', 
+        'apr', 'mai', 'may', 
+        'jun', 'jul', 'agu', 
+        'aug', 'sep', 'okt', 
+        'oct', 'nov', 'des', 
+        'dec'),  
+  n = c(1, 2, 3, 
+        4, 5, 5, 
+        6, 7, 8, 
+        8, 9, 10, 
+        10, 11, 12, 
+        12)
 )
 
-dx <- dcdb %>% mutate(
+dx <- tx %>% mutate(
   fra.man.fyrstu3 = str_sub(.$fra.man, end = 3),
   til.man.fyrstu3 = str_sub(.$til.man, end = 3)
 )
-
 
 dx <- dx %>% 
   left_join(minimal.month, by = c('fra.man.fyrstu3' = 'm')) %>%
   left_join(minimal.month, by = c('til.man.fyrstu3' = 'm'))
 
+dx <- dx %>% mutate(
+  man.fra.n = coalesce(n.x, as.numeric(blog.m)),
+  man.til.n = coalesce(n.y, as.numeric(blog.m))
+) 
 
-view(dx)
+out.d <- dx %>% mutate(blog.date = ymd(str_c(blog.y, blog.m, blog.d, sep = '/')),
+                       weekend.start = ymd(str_c(fra.ar, man.fra.n, fra.dag, sep ='/')),
+                       weekend.end = ymd(str_c(til.ar, man.til.n, til.dag, sep = '/'))) %>%
+  select(blog.date, 
+        rank.this.week = this.week, 
+        rank.last.week = last.week, 
+        weeks.in.release = wks.inrelease,
+        
+        film.title,
+        distributor.name, 
+        
+        gross.box.o.weekend = gross.b.o.we, 
+        adm.weekend = adm.we, 
+        weekend.start, weekend.end,
+        
+        adm.to.date,
+        total.box.o.to.date = total.b.o.to.date)
+
+view(out.d)
+  
