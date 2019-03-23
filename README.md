@@ -6,3 +6,6 @@ This script is designed to collect information from the websites of [FRÍSK](htt
   - Bits and pieces of the scripts are stored in the R_Sources folder
   - The main operation is done in the build script, which should be modified as needed
   - The data from the website is not included
+
+## The data
+The data was posted on this [data.world](https://data.world/rhubarbarosa/movie-attendance-in-iceland) page
