@@ -73,4 +73,6 @@ t.final <- fClean.post.rbind(t.long)
 
 # write.csv2(x = t.final, './_GognUt/movieAttendanceInIceland.csv', row.names = FALSE, append = TRUE)
 
-  
+write.csv2(x = t.final, './_GognUt/movieAttendanceInIceland.csv', row.names = FALSE)
+
+
